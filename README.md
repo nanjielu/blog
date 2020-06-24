@@ -1,1 +1,1 @@
-# blog
+# Personal blog, sharing knowledge
