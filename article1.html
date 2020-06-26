@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html  lang="zh-CN">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+<title>PLUMED中文教程</title>
+<link rel="icon" type="image/png" href="image/icon.png">
+<link rel="stylesheet" href ="css/normalize.css">
+<link rel="stylesheet" href ="css/style.css">
+</head>
+
+<body>
+  <div class="side-bar">
+    <div class="header">
+      <a href="main.html" class="logo">南街路</a>
+      <div class="intro"><b>格物・致知</b><br>Dig into the nature, and one's knowledge is extended.</div>
+    </div>
+    <div class="nav">
+      <a href="#" class="item">关于我 - About</a>
+      <a href="#" class="item">联系我 - Contect</a>
+      <a href="#" class="item">鼓励我 - Support</a>
+    </div>
+    <div class="tag-list">
+      <a href="#" class="item">标签 - Tags</a>
+    </div>
+  </div>
+  <div class="main">
+    <div class="article">
+      <h1 href="article.html" class="title">PLUMED中文官方教程：ISDD大师教程-PLUMED简介</h1>
+      <div class="status">发布于：2020-6-24&emsp;|&emsp;标签：#分子模拟&emsp;#PLUMED</div>
+      <br><br>
+      <div class="content">
+        <div align="center">转载请注明出处，本教程翻译自PLUMED-2.5 官网教程：<a href="https://www.plumed.org/doc-v2.5/user-doc/html/master-_i_s_d_d-1.html" target="_blank">Master ISDD tutorial: Brief introduction to PLUMED</a> </div><br>
+        <h3>～ 教程目标 ～</h3>
+        <div>本教程的目标是向您介绍PLUMED语法，通过编写输入文件(input files)在已经得到的MD轨迹上计算并得到轨迹在集合变量(collective variables, CVs)上的投影。</div><br>
+        <h3>～ 预期成果 ～</h3>
+        <div>完成本教程后，你将能够： </div>
+        <ul>
+          <li>编写一个简单的PLUMED输入文件，并调用PLUMED程序来分析轨迹；</li>
+          <li>使用PRINT操作，输出集体变量，例如距离(DISTANCE)，扭转角(TORSION)和回转半径(GYRATION)；</li>
+          <li>使用MOLINFO快捷方式;</li>
+          <li>定义和使用虚拟原子，例如CENTER。</li>
+        </ul>
+        <h3>～ PLUMED安装和概述 ～</h3>
+        <div>您可以在<a href="https://github.com/plumed/conda" target="_blank">此处</a>找到有关如何安装PLUMED的详细说明。PLUMED是一个库，通过添加接口合并到许多MD代码中，合并后您可以使用PLUMED即时执行各种不同的分析，并在分子动力学引擎中对采样进行调整。另外，PLUMED也可以用作分析轨迹的独立程序，如果您以这种方式使用代码，则可以在编译PLUMED之后通过以下命令来运行PLUMED可执行文件：  </div>
+        <pre><div>plumed &lt;instructions&gt;</div></pre>
+        <div>让我们首先了解一下可以使用PLUMED执行的计算有哪些。使用以下命令：</div>
+        <pre><div>plumed --help</div></pre>
+        <div>运行此命令时输出的是可以使用PLUMED执行的任务列表。 有一些命令可让您修补MD代码，一些命令使您能够运行分子动力学，一些命令使您可以构建手册。 但是，在本教程中，我们将主要使用PLUMED分析轨迹。 因此，我们将使用驱动程序工具执行大多数计算。 让我们看看可以通过发出以下命令来发布给PLUMED驱动程序的选项：</div>
+        <pre><div>plumed driver --help</div></pre>
+        <div>如你所见，我们可以使用PLUMED驱动程序执行许多操作。但是对于所有这些选项，我们将需要编写一个PLUMED输入文件。PLUMED输入文件的语法与我们稍后将用来运行增强采样模拟的语法相同，你现在了解的所有内容将在以后PLUMED与MD代码一起运行时都有帮助。</div><br>
+        <h3>～ PLUMED的输入文件 ～</h3>
+        <div>PLUMED的主要目标是计算集合变量(CVs)，CVs是用于分析构象变化或化学反应的复杂参数。PLUMED作为CVs的分析工具，可以在分子动力学过程中即时(或之后)进行数据的处理，这两种情况下都需要使用特定的PLUMED语法创建输入文件。下面是一个示例输入文件：</div>
+        <pre><div># Compute distance between atoms 1 and 10.
+# Atoms are ordered as in the trajectory files and their numbering starts from 1.
+# The distance is called "d" for future reference.
+d: DISTANCE ATOMS=1,10
+
+# Create a virtual atom in the center between atoms 20 and 30.
+# The virtual atom only exists within PLUMED and is called "center" for future reference.
+center: CENTER ATOMS=20,30
+
+# Compute the torsional angle between atoms 1, 10, 20, and center.
+# Notice that virtual atoms can be used as real atoms here.
+# The angle is called "phi" for future reference.
+phi1: TORSION ATOMS=1,10,20,center
+
+# the same CV defined before can be split into multiple line
+TORSION ...
+LABEL=phi2
+ATOMS=1,10,20,center
+...
+
+# Print d every 10 step on a file named "COLVAR1".
+PRINT ARG=d STRIDE=10 FILE=COLVAR1
+
+# Print phi1 and phi2 on another file names "COLVAR2" every 100 steps.
+PRINT ARG=phi1,phi2 STRIDE=100 FILE=COLVAR2 </div></pre>
+        <div>在上面的输入文件中，每一行都定义了一个操作(action)。这些操作可以计算距离(<code>DISTANCE</code>)，可以计算两个或多个原子之间的中心(<code>CENTER</code>)，或者在文件上输出一些值(<code>PRINT</code>)。每个操作都支持许多关键字，这些关键字指定了一些参数，其中<code>STRIDE</code>参数的操作是指定该操作的运行频率，上面的例子中，<code>d</code>将每10帧计算一次，<code>phi1</code>和<code>phi2</code>每100帧计算一次(<code>STRIDE</code>默认值为1，若省略该关键字，则将分析轨迹的每一帧写入相应的COLVAR文件)。上面示例中的所有其他动作都不支持<code>STRIDE</code>关键字，仅在被请求时才计算。简而言之，您可以认为对于正在分析的轨迹中的每个瞬间，PLUMED都将执行所有列出的动作，除非有<code>STRIDE</code>单独指定某操作的运行频率。</div><br>
+        <div>给你想研究的变量命名(如上面示例中的<code>d</code>,<code>phi1</code>和<code>phi2</code>)，然后你就可以在后面的操作中引用他们啦。原子列表应以逗号分隔的数字形式表示，不能有空格，另外可以创建虚拟原子并为其指定名称，以供后面使用。</div><br>
+        <div>你可以在<a href="files/plumed-2.5.4.pdf" target="_blank">手册</a>的“Getting Started”页面上找到有关PLUMED语法的更多信息。有关所有支持的CVs的完整文档，请参见“Collective Variables”页面。</div><br>
+        <div>默认情况下，PLUMED以下列单位输入和输出数值：</div>
+        <ul>
+          <li>能量： kJ/mol</li>
+          <li>长度： nm</li>
+          <li>时间： ps</li>
+        </ul>
+        <div>你可以使用<code>UNITS</code>关键字对数值的单位进行修改</div><br>
+        <h3>～ 练习1：计算并输出一些简单的CVs ～</h3>
+        <div>教程练习文件<a href="https://github.com/plumed/lugano2019/blob/master/handson_1/handson_1.tgz" target="_blank">链接</a>：<code>https://github.com/plumed/lugano2019/blob/master/handson_1/handson_1.tgz</code></div><br>
+        <div>压缩包包含以下文件：</div>
+        <ul>
+          <li>GB1_native.pdb：GB1蛋白天然结构的PDB文件</li>
+          <li>traj-whole.xtc：xtc格式的轨迹，为了简化练习，已经对GB1进行了完善</li>
+          <li>traj-broken.xtc：与GROMACS最初产生的轨迹相同。这里GB1被周期性边界条件破坏，应该被固定</li>
+        </ul>
+        <div>注：该链接可能会失效，当然你也可以用自己的轨迹文件来练习。</div><br>
+        <div>首先，使用文本编辑器创建一个PLUMED输入文件(例：<code>plumed.dat</code>)，下面的例子计算输出以下内容：</div>
+        <ul>
+          <li>蛋白所有CA原子的回转半径(<code>GYRATION</code>)：在GB1_native.pdb文件中查找CA原子的索引列表</li>
+          <li>蛋白所有CA原子之间的接触总数(<code>COORDINATION</code>)：参考距离<code>R_0</code>设置为 8.0 A(注意单位)</li>
+        </ul>
+        <pre><div># Compute gyration radius on CA atoms:
+r: GYRATION ATOMS=CA
+
+# Compute number of contacts between CA atoms
+co: COORDINATION GROUPA=CA R_0=0.8
+
+# Print the collective variables on COLVAR file every step
+PRINT ARG=r,co FILE=COLVAR STRIDE=10</div></pre>
+        <div>当你编辑好输入文件后，在命令行运行以下指令来开始计算：</div>
+        <pre><div>plumed driver --plumed plumed.dat --mf_xtc traj-broken.xtc</div></pre>
+        <div>你可以通过命令行中的反馈日志查看程序是否正确理解了你的输入文件，如果没有出现问题，程序会生成一个下面这样的COLVA文件(第一行给出了每列数据的标题)：</div>
+        <pre><div>#! FIELDS time r co
+ 0.000000 2.458704 165.184127
+ 1.000000 2.341932 164.546604
+ 2.000000 2.404708 162.606975
+ 3.000000 2.454297 143.850122
+ 4.000000 2.569342 147.110408
+ 5.000000 2.304027 163.608703</div></pre>
+        <div>最后，你可以尝试将相同的输入文件与traj-whole.xtc一起使用并检查结果，结果与先前使用的轨迹的相同吗？为什么？</div><br>
+        <h3>～ 练习2：使用MOLINFO快捷方式 ～</h3>
+        <div>PLUMED提供了一些快捷方式来选择具有特定属性的原子。要使用此功能，应指定MOLINFO操作以及参考的pdb文件。</div>
+        <div>让我们尝试使用此功能来计算GB1残基2的骨架二面角<code>phi</code>。此CV由<code>TORSION</code>操作和一组原子(4个)定义。对于残基<code>i</code>，二面角<code>phi</code>由以下原子定义：<code>C(i-1),N(i),CA(i),C(i)</code>。 在查阅了手册并检查了GB1_native.pdb之后，让我们以两种不同的方式定义所讨论的二面角：使用<code>MOLINFO</code>快捷方式定义残基2的<code>psi</code>，并使用4个原子的显式列表。</div>
+        <pre><div># activate MOLINFO functionalities
+MOLINFO STRUCTURE=GB1_native.pdb
+
+# define phi dihedral of residue 2 as a list of 4 atoms
+t1: TORSION ATOMS=7,8,9,14
+# define the same dihedral using MOLINFO shortcuts
+t2: TORSION ATOMS=C(1),N(2),CA(2),C(2)
+
+# print the value of t1 and t2 every 10 steps
+PRINT ARG=t1,t2 FILE=COLVAR STRIDE=10</div></pre>
+        <div>当编辑好输入文件之后，使用它来分析traj-whole.xtc，输出轨迹的两个CV，如果操作正确的话<code>t1,t2</code>这两个CV的轨迹结果是一样的</div><br>
+        <h3>～ 练习3：使用虚拟原子 ～</h3>
+        <div>有时，在计算CV时，您可能不想直接使用多个原子的位置，您可能想定义一个虚拟原子，该原子的位置是根据其他原子集合的位置生成的。例如您可能要使用一组原子的质心(<code>COM</code>)或几何中心(<code>CENTER</code>)。下面这个示例中，您将学习如何指定虚拟原子，并使用它们来定义CV：</div>
+        <pre><div># geometric center of first residue
+first: CENTER ATOMS=1,2,3,4,5,6,7,8
+# geometric center of last residue
+last: CENTER ATOMS=427-436
+
+# distance between centers of first and last residues, with PBCs
+d1: DISTANCE ATOMS=first,last
+# distance between centers of first and last residues, without PBCs
+d2: DISTANCE ATOMS=first,last NOPBC
+
+# print the two distances every step
+PRINT ARG=d1,d2 STRIDE=1 FILE=COLVAR</div></pre>
+        <div>在开始分析此计算的输出之前，需要注意一些有关此输入文件的内容，首先，我们应该知道这个文件指示PLUMED做了什么：</div>
+        <ol>
+          <li>计算原子从1到8的中心，记为虚拟原子<code>first</code>;</li>
+          <li>计算原子从427到436的中心，记为虚拟原子<code>last</code>;</li>
+          <li>计算两个虚拟原子<code>first</code>和<code>last</code>之间的距离，并将其保存在<code>d1</code>中;</li>
+          <li>计算两个虚拟原子<code>first</code>和<code>last</code>之间的距离(忽略周期性边界条件)，并将其保存在<code>d2</code>中;</li>
+          <li>计算轨迹的每一帧，并输出<code>d1</code>和<code>d2</code>到文件COLVAR中.</li>
+        </ol>
+        <div>注意，在上面的输入文件中，我们使用了两种不同的方式编写<code>CENTER</code>计算中使用的原子：</div>
+        <ul>
+          <li><code>ATOMS=1,2,3,4,5,6,7,8 </code>(所需原子的明确列表)</li>
+          <li><code>ATOMS=427-436 </code>(所需原子的范围)</li>
+        </ul>
+        <div>还要注意，原子的范围可以用步幅定义，步幅可以是负数，如下面的命令所示，它们都是等效的：</div>
+        <ul>
+          <li><code>ATOMS=from-to:by</code> (例: 427-436:2)</li>
+          <li><code>ATOMS=to-from:-by</code> (例: 436-427:-2)</li>
+        </ul>
+        <div>现在，分析两个CV的输出，它们相同吗？你认为在两个CV不同的那些时间段中发生了什么？你可以在traj-whole.xtc上重复相同的分析，并与先前的轨迹进行比较，结果是否相同？</div><br>
+        <div>以上就是本篇教程的全部内容，请记住练习让你熟能生巧！</div>
+        <div class="article_end" align="center"><br><br><br>———&emsp;不要往下翻啦，已经没有内容了&emsp;ʕ•ﻌ•ʔ&emsp;——— ​​​<br><br></div>
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>
