@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html  lang="zh-CN">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+<title>PLUMED中文教程</title>
+<link rel="icon" type="image/png" href="image/icon.png">
+<link rel="stylesheet" href ="css/normalize.css">
+<link rel="stylesheet" href ="css/style.css">
+</head>
+
+<body>
+  <div class="side-bar">
+    <div class="header">
+      <a href="main.html" class="logo">南街路</a>
+      <div class="intro"><b>格物・致知</b><br>Dig into the nature, and one's knowledge is extended.</div>
+    </div>
+    <div class="nav">
+      <a href="#" class="item">关于我 - About</a>
+      <a href="#" class="item">联系我 - Contect</a>
+      <a href="#" class="item">鼓励我 - Support</a>
+    </div>
+    <div class="tag-list">
+      <a href="#" class="item">#GROMACS</a>
+      <a href="#" class="item">#PLUMED</a>
+    </div>
+  </div>
+  <div class="main">
+    <div class="article">
+      <h1 href="article.html" class="title">PLUMED中文官方教程[2]：Metadynamics</h1>
+      <div class="status">发布于：2020-6-27&emsp;|&emsp;标签：#GROMACS&emsp;#PLUMED</div>
+      <br><br>
+      <div class="content">
+        <div class="reprint">本教程翻译自PLUMED-2.5 官网教程：<a href="https://www.plumed.org/doc-v2.5/user-doc/html/master-_i_s_d_d-2.html" target="_blank">Master ISDD tutorial: Metadynamics simulations with PLUMED</a> </div><br>
+        <h3>教程目标</h3>
+        <p>本教程的目的是指导用户使用PLUMED进行Metadynamics模拟。</p><br>
+        <h3>预期成果</h3>
+        <div>完成本教程后，你将能够： </div>
+        <ul>
+          <li>编写PLUMED输入文件以执行Metadynamics模拟</li>
+          <li>通过Metadynamics计算自由能</li>
+          <li>监视Metadynamics运行中变量的行为</li>
+          <li>使用块分析估算重构自由能时的误差</li>
+          <li>评估Metadynamics模拟的收敛性</li>
+        </ul><br><hr>
+        <h3>Metadynamics简介</h3>
+        <div>我们已经看到PLUMED可用于计算集体变量(CVs)，但PLUMED最常用的功能是对CVs施加作用力，PLUMED可以对集体变量实施各种可能的偏置作用。你可以在<a href="files/plumed-2.5.4.pdf" target="_blank">手册</a>的“Getting Started”页面上找到有关所有偏置方法的完整文档。在下面的内容中，我们将看到如何通过Metadynamics来建立自适应偏置势。</div><br>
+        <div>我们将使用AMBER99SB-ILDN力场在真空中模拟一个测试系统：丙氨酸二肽，这个相当简单的分子对于理解数据分析和自由能方法很有用，因为它有被自由能垒隔开的两个亚稳态，我们通常用Ramachandran二面角来表征这两个状态，在<b>图1</b>中用Φ(<code>phi</code>)和Ψ(<code>psi</code>)表示。</div>
+        <div class="img-box">
+          <img src="image/article_2/2-1.png" alt="2-1">
+          <div class="img-note">
+            <p><b>图1</b>&emsp;丙氨酸二肽的两个亚稳定状态的特征是其Ramachandran二面角</p>
+          </div><br>
+        </div><hr>
+        <h3>练习1：你的第一次Metadynamics</h3>
+        <p>教程练习文件<a href="https://github.com/plumed/lugano2019/blob/master/handson_2/handson_2.tgz" target="_blank">链接</a>：<code>https://github.com/plumed/lugano2019/blob/master/handson_2/handson_2.tgz</code></p><br>
+        <p>压缩包包含以下文件：</p>
+        <ul>
+          <li>diala.pdb：真空中丙氨酸二肽的PDB文件</li>
+          <li>topol.tpr：GROMACS运行文件，用于执行丙氨酸二肽的MD</li>
+          <li>do_block_fes.py：执行错误分析的python脚本</li>
+        </ul>
+        <p>译者注：该链接可能会失效，当然你也可以用自己的轨迹文件来练习。</p><br>
+        <p>在本练习中，我们将使用主干二面角ϕ作为CV来设置并执行Metadynamics。在计算过程中，我们还将监视其他主干二面角ψ的变化。下面是示例plumed.dat文件，你可以将其用作模板：</p>
+        <pre><p># Compute the backbone dihedral angle phi, defined by atoms C-N-CA-C
+phi: TORSION ATOMS=5,7,9,15
+# Compute the backbone dihedral angle psi, defined by atoms N-CA-C-N
+psi: TORSION ATOMS=7,9,15,17
+
+# Activate well-tempered metadynamics in phi
+metad: METAD ARG=phi
+# Deposit a Gaussian every 500 time steps, with initial height equal to 1.2 kJ/mol
+PACE=500 HEIGHT=1.2 
+# Gaussian width (sigma) should be chosen based on CV fluctuation in unbiased run
+SIGMA=0.35
+# the bias factor should be wisely chosen
+BIASFACTOR=10
+# Gaussians will be written to file and also stored on grid
+FILE=HILLS GRID_MIN=-pi GRID_MAX=pi
+
+# Print both collective variables and the value of the bias potential on COLVAR file
+PRINT ARG=phi,psi FILE=COLVAR STRIDE=10</p></pre>
+        <p>命令METAD的语法很简单，该指令后的关键字<code>ARG</code>后跟将要施加Metadynamics偏置势的CV的标签。关键字<code>PACE</code>以时间步长为单位确定高斯沉积的步幅，而关键字<code>HEIGHT</code>以kJ/mol为单位指定高斯的高度。对于每个CV，必须使用关键字<code>SIGMA</code>指定高斯宽度。高斯将被写入关键字<code>FILE</code>所指示的文件。</p><br>
+        <p>在此示例中，偏置势将存储在网格上，其边界由关键字<code>GRID_MIN</code>和<code>GRID_MAX</code>指定。 请注意，您可以提供每个集合变量的格数(<code>GRID_BIN</code>)或所需的网格间距(<code>GRID_SPACING</code>)。如果您把这两个参数都提供给了PLUMED，程序将使用最保守的选择(格数最多)。如果您不提供有关网格尺寸的任何信息(既不提供<code>GRID_BIN</code>也不提供<code>GRID_SPACING</code>)，并且如果高斯宽度有确定值，则PLUMED将使用高斯宽度的1/5作为网格间距，对于大多数运算，此默认选择应该是合理的。</p><br>
+        <p>plumed.dat文件编辑好后，您可以使用以下命令运行10 ns的Metadynamics模拟</p>
+        <pre><p>> gmx mdrun -s topol.tpr -nsteps 5000000 -plumed plumed.dat</p></pre>
+        <p>在模拟期间，PLUMED将创建两个文件，分别名为COLVAR和HILLS。COLVAR文件包含<code>PRINT</code>命令指定的所有信息，即每10个模拟步骤的CV值以及偏置势的当前值。我们可以使用<code>gnuplot</code>可视化模拟过程中CVs的行为：</p>
+        <pre><p>gnuplot> p "COLVAR" u 1:2</p></pre>
+        <div class="img-box">
+          <img src="image/article_2/2-2.png" alt="2-2">
+          <div class="img-note">
+            <p><b>图2</b>&emsp;在真空中丙氨酸二肽的Metadynamics模拟,前2 ns内CV随时间的变化</p>
+          </div><br>
+        </div>
+        <p>从<b>图2</b>我们可以看到系统初始化的状态为其中一个亚稳态，一段时间(t = 0.1 ns)后，系统被偏置势推动，访问了另一个局部最小值。随着模拟的继续，偏置势充满了整个潜在的自由能势阱，系统得以随意访问整个相空间。</p>
+        <p>HILLS文件包含模拟过程中高斯沉积的列表。我们看一下文件头，可以找到有关其内容的相关信息：</p>
+        <pre><p>#! FIELDS time phi sigma_phi height biasf
+#! SET multivariate false
+#! SET min_phi -pi
+#! SET max_phi pi</p></pre>   
+        <p>以FIELDS开头的行告诉我们在HILLS文件的各个列的数据代表什么：模拟时间，ϕ的瞬时值，高斯宽度和高度以及偏差因子。其中高斯高度随时间不断减小：</p>
+        <div class="img-box">
+          <img src="image/article_2/2-3.png" alt="2-3">
+          <div class="img-note">
+            <p><b>图3</b>&emsp;高斯高度随时间的变化</p>
+          </div><br>
+        </div>
+        <p>如果仔细看一下y轴的比例，我们会注意到在开始时高斯高度的值高于输入文件中指定的初始高度，该初始高度应为1.2 kJ/mol。准确的说，此列输出的是高斯方程的高度，该高度是由Metadynamics将偏置势与自由能相关的前置因子标定的。</p><br><hr>
+        <h3>练习2：计算自由能</h3>
+        <p>我们可以直接从偏置势来估计自由能随CV的变化，通过程序<code>sum_hills</code>我们可以实现这个计算，对模拟期间存储在HILLS文件中的高斯内核求和。使用以下命令：</p>
+        <pre><p>> plumed sum_hills --hills HILLS</p></pre>
+        <p>上面的命令生成一个名为fes.dat的文件，其中在规则网格上计算自由能随ϕ的变化。可以使用以下<code>sum_hills</code>选项来修改自由能文件的默认名称以及网格的边界和大小：</p>
+        <pre><p>--outfile	# specify the outputfile for sumhills
+--min		# the lower bounds for the grid
+--max		# the upper bounds for the grid
+--bin		# the number of bins for the grid
+--spacing	# grid spacing, alternative to the number of bins</p></pre>
+        <p>结果如<b>图4</b>所示：</p>
+        <div class="img-box">
+          <img src="image/article_2/2-4.png" alt="2-4">
+          <div class="img-note">
+            <p><b>图4</b>&emsp;10 ns Metadynamics模拟的二面角ϕ与自由能的函数。</p>
+          </div><br>
+        </div>
+        <p>为了评估模拟的收敛性，可以计算自由能的与时间的函数。达到收敛时，重建的自由能形貌应该相似。使用选项<code>--stride</code>可估算每个N个高斯核沉积的自由能，使用选项<code>--mintozero</code>可通过将全局最小值设置为零来对齐轮廓。例如使用以下命令：</p>
+        <pre><p>> plumed sum_hills --hills HILLS --stride 100 --mintozero</p></pre>
+        <p>每沉积100个高斯核，便计算输出出一个自由能形貌，并且将全局最小值对齐后结果应如<b>图5</b>所示所示：</p>
+        <div class="img-box">
+          <img src="image/article_2/2-5.png" alt="2-5">
+          <div class="img-note">
+            <p><b>图5</b>&emsp;每沉积100个高斯核，二面角ϕ与自由能的函数。</p>
+          </div><br>
+        </div>
+        <p>通过以下两个定性的判断，我们可以知道系统已经收敛：</p>
+        <ul>
+          <li>系统可以自由访问整个CVs空间(<b>图2</b>)</li>
+          <li>估算的自由能形貌不再随时间显著变化(<b>图5</b>)</li>
+        </ul>
+        <p><b>注意</b>：高斯高度减小到零这一事实不能用作衡量模拟收敛性的指标！</p><br><hr>
+        <h3>练习3：重新计算权重</h3>
+        <p>在上一个练习中，我们对ϕ进行了偏置，并以此来计算自由能，然而很多情况下，你需要在执行模拟后再决定要分析哪个变量，所以你必须重新调整模拟的权重。为了计算这些权重，我们可以使用以下两种方法之一：</p>
+        <ul>
+          <li>方法1：通过偏置势的时间依赖性来计算权重</li>
+          <li>方法2：使用模拟结束时得到的偏置势以及一个假定的在整个模拟过程中恒定的偏置势来计算权重</li>
+        </ul>
+        <p>在本练习中，我们将使用类似于伞形采样的加权方法(方法2)，这里我们将使用<code>driver</code>程序工具。</p><br>
+        <p>首先，准备一个plumed_reweight.dat文件，该文件与用于运行模拟的文件相同，但是在METAD命令中添加了关键字<code>RESTART=YES</code>，它将读取已经积累的hill并继续添加更多的hill。此外，将hill高度设置为零，并将步幅设置成一个很大的数值，这实际上将避免添加新的hill(即使添加了，它们的高度也将为零)。最后，更改<code>PRINT</code>语句，以写入每一帧(<code>STRIDE=1</code>)，并且除了<code>phi</code>和<code>psi</code>外，还要写入<code>metad.bias</code>。</p>
+        <pre><p># Compute the backbone dihedral angle phi, defined by atoms C-N-CA-C
+phi: TORSION ATOMS=5,7,9,15
+# Compute the backbone dihedral angle psi, defined by atoms N-CA-C-N
+psi: TORSION ATOMS=7,9,15,17
+
+# Activate well-tempered metadynamics in phi
+metad: METAD ARG=phi
+# Deposit a Gaussian every 500 time steps, with initial height equal to 1.2 kJ/mol
+PACE=10000000 HEIGHT=0.0 
+# Gaussian width (sigma) should be chosen based on CV fluctuation in unbiased run
+SIGMA=0.35
+# the bias factor should be wisely chosen
+BIASFACTOR=10
+# Gaussians will be written to file and also stored on grid
+FILE=HILLS GRID_MIN=-pi GRID_MAX=pi
+# Say that METAD should be restarting
+RESTART=YES
+
+# Print both collective variables and the value of the bias potential on COLVAR file
+PRINT ARG=phi,psi,metad.bias FILE=COLVAR STRIDE=1</p></pre>
+        <p>然后使用下面的命令运行计算：</p>
+        <pre><p>> plumed driver --ixtc traj_comp.xtc --plumed plumed_reweight.dat --kt 2.494339</p></pre>
+        <p>注意，这里必须以能量单位指定<math>k<sub>B</sub>T</math>的值。当运行你自己的模拟时，根据你系统的温度来计算(译者注:本例中为1.380649 × 6.02214 × 300 / 1000 = 2.494338 kJ/mol)。</p><br>
+        <p>PLUMED将产生一个带有附加列的新COLVAR文件，文件的开头应如下所示：</p>
+        <pre><p>#! FIELDS time phi psi metad.bias
+#! SET min_phi -pi
+#! SET max_phi pi
+#! SET min_psi -pi
+#! SET max_psi pi
+ 0.000000 -1.497988 0.273498 110.625670
+ 1.000000 -1.449714 0.576594 110.873141
+ 2.000000 -1.209587 0.831417 109.742353
+ 3.000000 -1.475975 1.279726 110.752327</p></pre>
+        <p>最后一列将以能量单位给出每帧权重的对数。您可以使用表达式 <math>w ∝ exp(V(s)/k<sub>B</sub>T)</math>（类似于伞形采样的重新加权）获得每个帧的权重。可以在python中读取COLVAR文件并计算加权直方图。</p><br>
+        <p>如果希望PLUMED帮你做直方图，则可以将以下行添加到plumed_reweight.dat输入文件中：</p>
+        <pre><p># use the metadynamics bias as argument
+as: REWEIGHT_BIAS ARG=metad.bias
+
+hhphi: HISTOGRAM ARG=phi STRIDE=50 GRID_MIN=-pi GRID_MAX=pi GRID_BIN=600 BANDWIDTH=0.1 LOGWEIGHTS=as
+hhpsi: HISTOGRAM ARG=psi STRIDE=50 GRID_MIN=-pi GRID_MAX=pi GRID_BIN=600 BANDWIDTH=0.1 LOGWEIGHTS=as
+ffphi: CONVERT_TO_FES GRID=hhphi
+ffpsi: CONVERT_TO_FES GRID=hhpsi
+
+DUMPGRID GRID=ffphi FILE=ffphi.dat
+DUMPGRID GRID=ffpsi FILE=ffpsi.dat</p></pre>
+        <p>然后使用<code>gnuplot</code>查看结果：</p>
+        <pre><p>gnuplot> p "ffphi.dat"
+gnuplot> p "ffpsi.dat"</p></pre><br><hr>
+        <div>以上就是本篇教程的全部内容，上一篇教程：<a href="article_1.html">PLUMED中文官方教程[1]：PLUMED简介</a></div>
+        <div class="article_end"><br><br><br>———&emsp;不要往下翻啦，已经没有内容了&emsp;ʕ•ﻌ•ʔ&emsp;——— ​​​<br><br></div>
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>
